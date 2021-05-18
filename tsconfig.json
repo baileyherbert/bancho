@@ -1,0 +1,45 @@
+{
+	"compilerOptions": {
+		"outDir": "dist",
+
+		"module": "commonjs",
+		"moduleResolution": "node",
+
+		"target": "es6",
+		"lib": ["es6"],
+
+		"declaration": true,
+		"declarationMap": false,
+		"sourceMap": true,
+
+		"downlevelIteration": true,
+		"esModuleInterop": true,
+		"experimentalDecorators": true,
+		"resolveJsonModule": true,
+		"emitDecoratorMetadata": true,
+
+		"alwaysStrict": true,
+		"strict": true,
+		"noEmitOnError": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"noImplicitReturns": true,
+		"importsNotUsedAsValues": "remove",
+
+		"skipLibCheck": true,
+		"stripInternal": true,
+		"removeComments": false,
+
+		"newLine": "lf",
+
+		"baseUrl": ".",
+		"paths": {
+			"bancho": ["src/core"],
+			"bancho/*": ["src/core/*"],
+			"@modules/*": ["src/modules/*"]
+		}
+	},
+	"include": ["src/**/*.ts"],
+	"exclude": ["node_modules", "lib", "tests"]
+}

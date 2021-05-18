@@ -1,0 +1,31 @@
+{
+	"private": true,
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc -w",
+		"start": "node dist/index"
+	},
+	"dependencies": {
+		"chalk": "^4.1.1",
+		"cheerio": "^1.0.0-rc.5",
+		"cron": "^1.8.2",
+		"discord.js": "github:discordjs/discord.js",
+		"module-alias": "^2.2.2",
+		"moment": "^2.29.1",
+		"moment-timezone": "^0.5.33",
+		"node-fetch": "^2.6.1",
+		"reflect-metadata": "^0.1.13",
+		"source-map-support": "^0.5.19"
+	},
+	"devDependencies": {
+		"@types/cheerio": "^0.22.23",
+		"@types/cron": "^1.7.2",
+		"@types/node": "^14",
+		"@types/node-fetch": "^2.5.10",
+		"typescript": "^4.2"
+	},
+	"_moduleAliases": {
+		"bancho": "dist/core",
+		"@modules": "dist/modules"
+	}
+}
