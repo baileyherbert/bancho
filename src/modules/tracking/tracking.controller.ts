@@ -73,7 +73,7 @@ export class TrackingController extends Controller {
 
 		// Build the description
 		// We'll add text to it later if we determine that we don't have enough data
-		let description = `Below is the amount of time ${member.displayName} has been online recently.`;
+		let description = `Below is the amount of time ${member} has been online recently.`;
 
 		// Add the field for the last day
 		fields.push({
@@ -99,15 +99,18 @@ export class TrackingController extends Controller {
 			}
 		}
 
-		return event.send(new MessageEmbed({
-			title: `${namePlural} statistics`,
-			description,
-			fields,
-			color: 0x2f3136,
-			thumbnail: {
-				url: member.user.displayAvatarURL({ size: 128 })
-			},
-		}));
+		return event.send({
+			allowedMentions: { users: [] },
+			embeds: [new MessageEmbed({
+				title: `${namePlural} statistics`,
+				description,
+				fields,
+				color: 0x2f3136,
+				thumbnail: {
+					url: member.user.displayAvatarURL({ size: 128 })
+				},
+			})]
+		});
 	}
 
 }
