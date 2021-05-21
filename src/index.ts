@@ -15,6 +15,7 @@ import { UtilitiesModule } from '@modules/utilities/utilities.module';
 import { WubbaModule } from '@modules/wubba/wubba.module';
 import { GameModule } from '@modules/games/game.module';
 import { SteamModule } from '@modules/steam/steam.module';
+import { VoiceModule } from '@modules/voice/voice.module';
 
 // Prevent running as root
 if (typeof process.getuid === 'function' && process.getuid() === 0) {
@@ -30,11 +31,16 @@ const bancho = new Bot({
 		EthereumModule,
 		TrackingModule,
 		WeatherModule,
+		GameModule,
 		MusicModule,
+		SteamModule,
+		TrackingModule,
 		UtilitiesModule,
+		WeatherModule,
 		WubbaModule,
 		GameModule,
 		SteamModule
+		VoiceModule
 	]
 });
 
