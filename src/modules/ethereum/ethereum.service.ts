@@ -54,49 +54,51 @@ export class EthereumService extends Service {
 		this._trackedChannels = new Set();
 		this.timezone = this.config.value.timezone;
 
-		for (const target of this.config.value.announcements) {
-			const channel = await this.bot.client.channels.fetch(target.channelId) as TextChannel;
-			const users = new Array<TrackingChannelUser>();
+		try {
+			for (const target of this.config.value.announcements) {
+				const channel = await this.bot.client.channels.fetch(target.channelId) as TextChannel;
+				const users = new Array<TrackingChannelUser>();
 
-			if (!channel) {
-				throw new Error('Channel not found: ' + target.channelId);
-			}
-
-			for (const user of target.users) {
-				const member = await channel.guild.members.fetch(user.userId);
-
-				if (!member) {
-					throw new Error(`User ${user.userId} not found in channel ${target.channelId}`);
+				if (!channel) {
+					throw new Error('Channel not found: ' + target.channelId);
 				}
 
-				users.push({
-					member,
-					sendPriceAlerts: user.sendPriceAlerts ?? false,
-					updatePinImmediately: user.updatePinImmediately ?? false,
-					updatePinInterval: user.updatePinInterval ?? 15
+				for (const user of target.users) {
+					const member = await channel.guild.members.fetch(user.userId);
+
+					if (!member) {
+						throw new Error(`User ${user.userId} not found in channel ${target.channelId}`);
+					}
+
+					users.push({
+						member,
+						sendPriceAlerts: user.sendPriceAlerts ?? false,
+						updatePinImmediately: user.updatePinImmediately ?? false,
+						updatePinInterval: user.updatePinInterval ?? 15
+					});
+				}
+
+				const store = await this.createStoreAsync<TrackingChannelStore>(`pins/${target.channelId}`, {
+					updatedAt: 0
 				});
+
+				const pin = store.value.messageId ? await channel.messages.fetch(store.value.messageId) : undefined;
+				const tracking: TrackingChannel = {
+					interval: 15,
+					channel,
+					users,
+					pin,
+					store,
+					steps: 1
+				};
+
+				this._trackedChannels.add(tracking);
+
+				if (pin === undefined) {
+					await this._updatePinnedMessage(tracking, true);
+				}
 			}
-
-			const store = await this.createStoreAsync<TrackingChannelStore>(`pins/${target.channelId}`, {
-				updatedAt: 0
-			});
-
-			const pin = store.value.messageId ? await channel.messages.fetch(store.value.messageId) : undefined;
-			const tracking: TrackingChannel = {
-				interval: 15,
-				channel,
-				users,
-				pin,
-				store,
-				steps: 1
-			};
-
-			this._trackedChannels.add(tracking);
-
-			if (pin === undefined) {
-				await this._updatePinnedMessage(tracking, true);
-			}
-		}
+		}catch(err){}
 	}
 
 	@DiscordEvent('messageDelete')
@@ -299,27 +301,32 @@ export class EthereumService extends Service {
 			if (!member) throw new Error('Could not find user for account: ' + account.id);
 
 			// Send the message
-			await channel.send(new MessageEmbed({
-				author: {
-					name: '2Miners',
-					url: `https://eth.2miners.com/account/${account.id}`,
-					icon_url: 'https://bailey.sh/bancho/icons/2miners.png?v=3'
+			await channel.send('', {
+				embed: {
+					author: {
+						name: '2Miners',
+						url: `https://eth.2miners.com/account/${account.id}`,
+						icon_url: 'https://bailey.sh/bancho/icons/2miners.png?v=3'
+					},
+					description: `${member.displayName}'s earnings for ${date}.`,
+					color: 0xff5500,
+					fields: [
+						{
+							name: 'Ether  󠀀󠀀',
+							value: eth,
+							inline: true
+						},
+						{
+							name: 'Dollars',
+							value: '$' + usd,
+							inline: true
+						},
+					]
 				},
-				description: `Here are ${member.displayName}'s earnings for ${date}.`,
-				color: 0xff5500,
-				fields: [
-					{
-						name: 'Ether',
-						value: eth,
-						inline: true
-					},
-					{
-						name: 'Dollars',
-						value: '$' + usd,
-						inline: true
-					},
-				]
-			}));
+				allowedMentions: {
+					users: []
+				}
+			});
 		}
 	}
 

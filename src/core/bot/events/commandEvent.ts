@@ -1,4 +1,4 @@
-import { APIMessage } from 'discord.js';
+import { APIMessage, WebhookMessageOptions } from 'discord.js';
 import { MessageAdditions } from 'discord.js';
 import { MessageEmbed } from 'discord.js';
 import { Message } from 'discord.js';
@@ -141,6 +141,7 @@ export class CommandEvent {
 	 *
 	 * @param content
 	 */
+	public async send(content: string | MessageAdditions | WebhookMessageOptions): Promise<void>;
     public async send(content: string | MessageAdditions, options?: WebhookEditMessageOptions): Promise<void>;
 	public async send(content: any, options?: any): Promise<void> {
 		this._isReplying = true;
