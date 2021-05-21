@@ -1,7 +1,6 @@
 import { Service, Task, TaskEvent } from 'bancho';
-import fetch from 'node-fetch';
-import cheerio from 'cheerio';
 import { MessageEmbed, TextChannel } from 'discord.js';
+import { SteamProfile, SteamComment } from './parsers/steamProfile';
 import { TeamFortressBlog, Update, UpdateChangelogItem } from './parsers/teamFortressBlog';
 
 export class SteamService extends Service {
@@ -10,7 +9,11 @@ export class SteamService extends Service {
 	 * The configuration file for the service.
 	 */
 	public readonly config = this.createConfig<SteamConfig>({
-		updatesChannelIds: []
+		updatesChannelIds: [],
+		profiles: [],
+		emotes: {
+			newCommentEmote: ''
+		}
 	});
 
 	/**
@@ -18,6 +21,80 @@ export class SteamService extends Service {
 	 */
 	private _store = this.createStore<number>('updates/tf2');
 
+	/**
+	 * Checks steam profiles for new comments.
+	 *
+	 * @param event
+	 */
+	@Task('0 */5 * * * *', { immediateFirstRun: true, immediate: true, immediateWhenLate: true, numReattempts: 2 })
+	public async getNewComments(event: TaskEvent) {
+		for (const profile of this.config.value.profiles) {
+			const steam = new SteamProfile(profile.steamId);
+			const comments = await steam.fetch();
+			const store = await this.createStoreAsync<number>('comments/' + steam.id);
+			const lastCommentTime = store.value;
+
+			// If this is first run, set the time to the latest comment
+			if (typeof lastCommentTime === 'undefined') {
+				if (comments.length > 0) {
+					store.write(comments[0].timestamp);
+				}
+
+				continue;
+			}
+
+			// Look for comments posted since the last saved timestamp
+			for (const comment of comments.slice().reverse()) {
+				if (comment.timestamp > lastCommentTime) {
+					await this._announceNewComment(event, profile, comment);
+				}
+			}
+
+			// Update the timestamp to the latest comment
+			if (comments.length > 0) {
+				store.write(comments[0].timestamp);
+			}
+		}
+	}
+
+	/**
+	 * Announces in the user's configured channel that a new steam comment was found.
+	 *
+	 * @param event
+	 * @param profile
+	 * @param comment
+	 */
+	private async _announceNewComment(event: TaskEvent, profile: SteamProfileConfig, comment: SteamComment) {
+		const emote = this.config.value.emotes.newCommentEmote;
+		const channel = event.bot.client.channels.resolve(profile.channelId) as TextChannel;
+
+		if (!channel) {
+			return console.error('steam: Cannot post to missing announcement channel %s', profile.channelId);
+		}
+
+		this.logger.info('Announcing new steam comment for %s', profile.steamId);
+
+		return channel.send(`${emote}  <@${profile.memberId}> just got a new comment on their Steam profile!`, {
+			embed: new MessageEmbed({
+				author: {
+					name: comment.posterName,
+					icon_url: comment.posterAvatar,
+					url: comment.posterLink
+				},
+				description: comment.text,
+				timestamp: comment.timestamp
+			}),
+			allowedMentions: {
+				users: []
+			}
+		});
+	}
+
+	/**
+	 * Checks for Team Fortress 2 updates.
+	 *
+	 * @param event
+	 */
 	@Task('0 */15 * * * *', { immediateFirstRun: true, immediateWhenLate: true })
 	public async checkForUpdates(event: TaskEvent) {
 		const blog = new TeamFortressBlog();
@@ -137,4 +214,14 @@ export class SteamService extends Service {
 
 interface SteamConfig {
 	updatesChannelIds: string[];
+	profiles: SteamProfileConfig[];
+	emotes: {
+		newCommentEmote: string;
+	}
+}
+
+interface SteamProfileConfig {
+	steamId: string;
+	memberId: string;
+	channelId: string;
 }
