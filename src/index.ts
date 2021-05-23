@@ -29,8 +29,6 @@ const bancho = new Bot({
 	storagePath: path.resolve(__dirname, '../storage'),
 	modules: [
 		EthereumModule,
-		TrackingModule,
-		WeatherModule,
 		GameModule,
 		MusicModule,
 		SteamModule,
@@ -38,15 +36,13 @@ const bancho = new Bot({
 		UtilitiesModule,
 		WeatherModule,
 		WubbaModule,
-		GameModule,
-		SteamModule
 		VoiceModule
 	]
 });
 
 // Use the default launcher to mount the bot to the current process
 const launcher = new BotLauncher(bancho, {
-	loggingLevel: LogLevel.Verbose
+	loggingLevel: LogLevel.Debug
 });
 
 launcher.start();
