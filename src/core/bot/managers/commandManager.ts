@@ -14,10 +14,12 @@ export class CommandManager {
 	private _cache = new Map<Controller, Cache>();
 
 	private _bot: Bot;
+	private _guilds?: Set<string>;
 	private _logger: Logger;
 
-	public constructor(bot: Bot) {
+	public constructor(bot: Bot, guilds?: string[]) {
 		this._bot = bot;
+		this._guilds = guilds ? new Set(guilds) : undefined;
 		this._logger = bot.logger.createLogger('commands');
 	}
 
@@ -132,7 +134,12 @@ export class CommandManager {
 		this._bot.logger.debug('Checking guild commands (count=%d)', commandsGuild.length);
 
 		for (const guild of guilds) {
-			numModifications += await this._upgradeRemoteCommands(guild.commands, commandsGuild);
+			if (!this._guilds || this._guilds.has(guild.id)) {
+				numModifications += await this._upgradeRemoteCommands(guild.commands, commandsGuild);
+			}
+			else {
+				numModifications += await this._upgradeRemoteCommands(guild.commands, []);
+			}
 		}
 
 		// Upgrade global commands

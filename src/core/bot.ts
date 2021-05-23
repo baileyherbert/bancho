@@ -77,7 +77,7 @@ export class Bot {
 
 		this.modules = this._initModules();
 
-		this.commands = new CommandManager(this);
+		this.commands = new CommandManager(this, this._config.value.guilds);
 		this.tasks = new TaskManager(this);
 		this.events = new EventManager(this);
 
@@ -426,6 +426,7 @@ interface BotOptions {
 
 interface BotConfig {
 	token: string;
+	guilds?: string[];
 }
 
 type Status = 'online' | 'starting' | 'stopping' | 'offline';
