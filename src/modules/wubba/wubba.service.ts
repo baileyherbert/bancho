@@ -1,5 +1,5 @@
 import { Service } from 'bancho';
-import { TextChannel } from 'discord.js';
+import { MessageEmbed, TextChannel } from 'discord.js';
 import { connect } from 'socket.io-client';
 import { URL } from 'url';
 
@@ -102,6 +102,9 @@ export class WubbaService extends Service {
 	 * @param socket
 	 */
 	protected listen(socket: SocketIOClient.Socket) {
+		/**
+		 * Handle new rick rolls!
+		 */
 		socket.on('event/rickRoll', async (location: RickRollDto) => {
 			this.logger.info(
 				'New rick roll from %s, %s, %s',
@@ -121,10 +124,18 @@ export class WubbaService extends Service {
 				const area = location.country === 'United States' ? (location.city + ', ' + location.regionName) :
 					(location.regionName + ', ' + location.country);
 
-				await channel.send(`${this.config.value.emotes.rickRoll}  New rick roll from **${area}**!`);
+				const link = `https://tools.keycdn.com/geo?host=${location.ip}`;
+
+				await channel.send(new MessageEmbed({
+					description: `${this.config.value.emotes.rickRoll} **Rick rolled!** Someone from [${area}](${link}) just got pranked.`,
+					color: 0x8b5f48
+				}));
 			}
 		});
 
+		/**
+		 * Handle rage quit events.
+		 */
 		socket.on('event/rageQuit', async (dto: RageQuitDto) => {
 			this.logger.info(
 				'%s <%s> made %s <%s> rage quit!',
@@ -142,10 +153,43 @@ export class WubbaService extends Service {
 					continue;
 				}
 
-				const killer = `[${dto.killer.username}](https://steamcommunity.com/profiles/${dto.killer.id64})`;
-				const player = `[${dto.player.username}](https://steamcommunity.com/profiles/${dto.player.id64})`;
+				const victim = `[${dto.player.username}](https://steamcommunity.com/profiles/${dto.player.id64})`;
 
-				await channel.send(`${this.config.value.emotes.rageQuit}  **${killer}** made **${player}** rage quit!`);
+				await channel.send(new MessageEmbed({
+					description: `${this.config.value.emotes.rageQuit} **Rage quit!** ${dto.killer.username} just made ${victim} leave their match.`,
+					color: 0xda2f47
+				}));
+			}
+		});
+
+		/**
+		 * Handle incoming chat trophies.
+		 */
+		socket.on('event/trophy', async (dto: TrophyDto) => {
+			this.logger.info(
+				'New chat trophy from %s <%s>',
+				dto.player.username,
+				dto.player.id
+			);
+
+			for (const { channelId } of this.config.value.channels) {
+				const channel = await this.bot.client.channels.fetch(channelId) as TextChannel;
+
+				if (!(channel instanceof TextChannel)) {
+					this.logger.error('Skipping invalid channel:', channelId);
+					continue;
+				}
+
+				await channel.send(new MessageEmbed({
+					author: {
+						name: dto.player.username,
+						icon_url: dto.player.avatar,
+						url: `https://steamcommunity.com/profiles/${dto.player.id64}`
+					},
+					description: `“${dto.message.trim()}”`,
+					timestamp: dto.timestamp,
+					color: 0xdac02f
+				}));
 			}
 		});
 	}
@@ -183,6 +227,7 @@ interface FailedAuthDto {
 
 interface RickRollDto {
 	status: 'success' | 'fail';
+	ip: string;
 	message?: string;
 	country: string;
 	regionName: string;
@@ -191,14 +236,24 @@ interface RickRollDto {
 }
 
 interface RageQuitDto {
-	player: {
-		id: string;
-		id64: string;
-		username: string;
-	};
-	killer: {
-		id: string;
-		id64: string;
-		username: string;
-	};
+	player: PlayerModel;
+	killer: PlayerModel;
+	details: {
+		weaponName: string;
+		mapName: string;
+		critical: boolean;
+	}
+}
+
+interface TrophyDto {
+	player: PlayerModel;
+	message: string;
+	timestamp: number;
+}
+
+interface PlayerModel {
+	id: string;
+	id64: string;
+	username: string;
+	avatar: string;
 }
