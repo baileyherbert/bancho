@@ -109,9 +109,18 @@ export class Bot {
 			this.client.guilds.cache.size !== 1 ? 's' : ''
 		);
 
-		this.logger.info('Starting modules...');
+		// Register commands in the manager
+		for (const module of this.modules) {
+			for (const controller of module.getControllers()) {
+				this.commands.register(controller);
+			}
+		}
+
+		// Send new or modified commands to Discord
+		await this.commands.sync();
 
 		// Start modules
+		this.logger.info('Starting modules...');
 		for (const module of this.modules) {
 			this.logger.debug('Starting module: %s', module.options.name);
 
@@ -120,15 +129,8 @@ export class Bot {
 			if (!await module.start()) {
 				throw new StartError(`The ${module.options.name} module returned an error during start`);
 			}
-
-			// Register commands in the manager
-			for (const controller of module.getControllers()) {
-				this.commands.register(controller);
-			}
 		}
 
-		// Send new or modified commands to Discord
-		await this.commands.sync();
 		this.logger.info('Bot started successfully');
 
 		// Start tasks
