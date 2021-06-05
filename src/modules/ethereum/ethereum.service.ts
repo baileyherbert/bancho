@@ -54,51 +54,57 @@ export class EthereumService extends Service {
 		this._trackedChannels = new Set();
 		this.timezone = this.config.value.timezone;
 
-		try {
-			for (const target of this.config.value.announcements) {
-				const channel = await this.bot.client.channels.fetch(target.channelId) as TextChannel;
-				const users = new Array<TrackingChannelUser>();
+		for (const target of this.config.value.announcements) {
+			const channel = await this.bot.client.channels.fetch(target.channelId) as TextChannel;
+			const users = new Array<TrackingChannelUser>();
 
-				if (!channel) {
-					throw new Error('Channel not found: ' + target.channelId);
-				}
-
-				for (const user of target.users) {
-					const member = await channel.guild.members.fetch(user.userId);
-
-					if (!member) {
-						throw new Error(`User ${user.userId} not found in channel ${target.channelId}`);
-					}
-
-					users.push({
-						member,
-						sendPriceAlerts: user.sendPriceAlerts ?? false,
-						updatePinImmediately: user.updatePinImmediately ?? false,
-						updatePinInterval: user.updatePinInterval ?? 15
-					});
-				}
-
-				const store = await this.createStoreAsync<TrackingChannelStore>(`pins/${target.channelId}`, {
-					updatedAt: 0
-				});
-
-				const pin = store.value.messageId ? await channel.messages.fetch(store.value.messageId) : undefined;
-				const tracking: TrackingChannel = {
-					interval: 15,
-					channel,
-					users,
-					pin,
-					store,
-					steps: 1
-				};
-
-				this._trackedChannels.add(tracking);
-
-				if (pin === undefined) {
-					await this._updatePinnedMessage(tracking, true);
-				}
+			if (!channel) {
+				throw new Error('Channel not found: ' + target.channelId);
 			}
-		}catch(err){}
+
+			for (const user of target.users) {
+				const member = await channel.guild.members.fetch(user.userId);
+
+				if (!member) {
+					throw new Error(`User ${user.userId} not found in channel ${target.channelId}`);
+				}
+
+				users.push({
+					member,
+					sendPriceAlerts: user.sendPriceAlerts ?? false,
+					updatePinImmediately: user.updatePinImmediately ?? false,
+					updatePinInterval: user.updatePinInterval ?? 15
+				});
+			}
+
+			const store = await this.createStoreAsync<TrackingChannelStore>(`pins/${target.channelId}`, {
+				updatedAt: 0
+			});
+
+			let pin: Message | undefined;
+
+			if (store.value.messageId) {
+				try {
+					pin = await channel.messages.fetch(store.value.messageId)
+				}
+				catch (err) {}
+			}
+
+			const tracking: TrackingChannel = {
+				interval: 15,
+				channel,
+				users,
+				pin,
+				store,
+				steps: 1
+			};
+
+			this._trackedChannels.add(tracking);
+
+			if (!pin) {
+				await this._updatePinnedMessage(tracking, true);
+			}
+		}
 	}
 
 	@DiscordEvent('messageDelete')
@@ -107,6 +113,37 @@ export class EthereumService extends Service {
 			if (tracking.pin?.id === message.id) {
 				await this._updatePinnedMessage(tracking);
 			}
+		}
+	}
+
+	@DiscordEvent('messageUpdate')
+	protected async onMessageUpdate(oldMessage: Message, newMessage: Message) {
+		for (const tracking of this._trackedChannels) {
+			if (tracking.pin?.id === oldMessage.id) {
+				if (newMessage.embeds.length === 0) {
+					this.logger.info('Pinned message embed in channel %s was suppressed', newMessage.channel.id);
+					await newMessage.delete();
+				}
+
+				else if (!newMessage.pinned) {
+					this.logger.info('Pinned message in channel %s was unpinned', newMessage.channel.id);
+
+					await newMessage.pin();
+
+					// Delete the pinned message
+					const messages = await newMessage.channel.messages.fetch({
+						limit: 5
+					});
+
+					for (const message of messages.values()) {
+						if (message.type === 'PINS_ADD') {
+							await message.delete();
+							break;
+						}
+					}
+				}
+			}
+
 		}
 	}
 
@@ -151,7 +188,6 @@ export class EthereumService extends Service {
 	 */
 	private async _updatePinnedMessage(tracking: TrackingChannel, force = false) {
 		const stats = this.getStats();
-		const updateTime = moment.tz('America/Denver').format('h:mm A zz');
 
 		const usd = this.getDollars(1, true);
 
